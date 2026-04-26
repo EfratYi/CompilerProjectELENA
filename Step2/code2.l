@@ -245,6 +245,171 @@ class VMTranslator
         }
     }
 
+    handleFunctionCallReturn(string command, string arg1, string arg2)
+    {
+        if (command == "function") {
+            _outputFile.writeLine("// function " + arg1 + " " + arg2);
+            _outputFile.writeLine("(" + arg1 + ")");
+            int numLocals := arg2.toInt();
+            int i := 0;
+            while (i < numLocals) {
+                _outputFile.writeLine("@SP");
+                _outputFile.writeLine("A=M");
+                _outputFile.writeLine("M=0");
+                _outputFile.writeLine("@SP");
+                _outputFile.writeLine("M=M+1");
+                i := i + 1
+            }
+        }
+        else if (command == "call") {
+            string returnLabel := arg1 + "$ret." + _logicalCounter.toString();
+            _logicalCounter := _logicalCounter + 1;
+
+            _outputFile.writeLine("// call " + arg1 + " " + arg2);
+
+            // push return address
+            _outputFile.writeLine("@" + returnLabel);
+            _outputFile.writeLine("D=A");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("M=M+1");
+
+            // push LCL
+            _outputFile.writeLine("@LCL");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("M=M+1");
+
+            // push ARG
+            _outputFile.writeLine("@ARG");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("M=M+1");
+
+            // push THIS
+            _outputFile.writeLine("@THIS");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("M=M+1");
+
+            // push THAT
+            _outputFile.writeLine("@THAT");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("M=M+1");
+
+            // ARG = SP - n - 5
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@" + arg2);
+            _outputFile.writeLine("D=D-A");
+            _outputFile.writeLine("@5");
+            _outputFile.writeLine("D=D-A");
+            _outputFile.writeLine("@ARG");
+            _outputFile.writeLine("M=D");
+
+            // LCL = SP
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@LCL");
+            _outputFile.writeLine("M=D");
+
+            // goto function
+            _outputFile.writeLine("@" + arg1);
+            _outputFile.writeLine("0;JMP");
+
+            // return label
+            _outputFile.writeLine("(" + returnLabel + ")")
+        }
+        else if (command == "return") {
+            _outputFile.writeLine("// return");
+
+            // FRAME = LCL  (store in R14)
+            _outputFile.writeLine("@LCL");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@R14");
+            _outputFile.writeLine("M=D");
+
+            // RET = *(FRAME-5)  (store in R15)
+            _outputFile.writeLine("@5");
+            _outputFile.writeLine("A=D-A");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@R15");
+            _outputFile.writeLine("M=D");
+
+            // *ARG = pop()
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@ARG");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("M=D");
+
+            // SP = ARG+1
+            _outputFile.writeLine("@ARG");
+            _outputFile.writeLine("D=M+1");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("M=D");
+
+            // THAT = *(FRAME-1)
+            _outputFile.writeLine("@R14");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@THAT");
+            _outputFile.writeLine("M=D");
+
+            // THIS = *(FRAME-2)
+            _outputFile.writeLine("@R14");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@THIS");
+            _outputFile.writeLine("M=D");
+
+            // ARG = *(FRAME-3)
+            _outputFile.writeLine("@R14");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@ARG");
+            _outputFile.writeLine("M=D");
+
+            // LCL = *(FRAME-4)
+            _outputFile.writeLine("@R14");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@LCL");
+            _outputFile.writeLine("M=D");
+
+            // goto RET
+            _outputFile.writeLine("@R15");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("0;JMP")
+        }
+    }
+
+    writeBootstrap()
+    {
+        _outputFile.writeLine("// Bootstrap");
+        _outputFile.writeLine("@256");
+        _outputFile.writeLine("D=A");
+        _outputFile.writeLine("@SP");
+        _outputFile.writeLine("M=D");
+        handleFunctionCallReturn("call", "Sys.init", "0")
+    }
+
     translateFile(string fullPath)
     {
         int pos := 0;
@@ -270,7 +435,7 @@ class VMTranslator
         {
             string line := reader.readLine().trim();
 
-            // החלפת tabs ברווחים
+            // replace tabs with spaces
             string cleanLine := "";
             int ci := 0;
             while (ci < line.Length) {
@@ -289,7 +454,6 @@ class VMTranslator
 
                 if (line.Length > 0)
                 {
-                    // פיצול מילים תוך דילוג על רווחים כפולים
                     string cmd  := "";
                     string arg1 := "";
                     string arg2 := "";
@@ -313,7 +477,7 @@ class VMTranslator
                         };
                         wi := wi + 1
                     };
-                    // המילה האחרונה
+                    // last word
                     if (currentWord.Length > 0) {
                         if (wordCount == 0) { cmd := currentWord }
                         else if (wordCount == 1) { arg1 := currentWord }
@@ -342,6 +506,24 @@ class VMTranslator
                         {
                             handleProgramFlow(cmd, arg1)
                         }
+                    }
+                    else if (cmd == "function")
+                    {
+                        if (wordCount > 2)
+                        {
+                            handleFunctionCallReturn(cmd, arg1, arg2)
+                        }
+                    }
+                    else if (cmd == "call")
+                    {
+                        if (wordCount > 2)
+                        {
+                            handleFunctionCallReturn(cmd, arg1, arg2)
+                        }
+                    }
+                    else if (cmd == "return")
+                    {
+                        handleFunctionCallReturn(cmd, "", "")
                     }
                 }
             }
@@ -392,6 +574,7 @@ public program()
     outPath := outPath + ".asm";
     
     var translator := VMTranslator.new(outPath);
+    translator.writeBootstrap();
     var files := Directory.assign(path).getFiles();
     int count := files.Length;
     
