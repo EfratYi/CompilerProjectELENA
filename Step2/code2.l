@@ -62,67 +62,61 @@ class VMTranslator
             _outputFile.writeLine("A=M-1");
             _outputFile.writeLine("M=!M")
         }
-       else if (command == "avg2") {
-    _outputFile.writeLine("// avg2");
+        else if (command == "avg2") {
+            _outputFile.writeLine("// avg2");
 
-    // pop y
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("AM=M-1");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@R13");
-    _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@R13");
+            _outputFile.writeLine("M=D");
 
-    // pop x
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("AM=M-1");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@R14");
-    _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@R14");
+            _outputFile.writeLine("M=D");
 
-    // sum = x + y
-    _outputFile.writeLine("@R13");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@R14");
-    _outputFile.writeLine("D=D+M");
+            _outputFile.writeLine("@R13");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@R14");
+            _outputFile.writeLine("D=D+M");
 
-    _outputFile.writeLine("@R15");
-    _outputFile.writeLine("M=D");   // R15 = sum
+            _outputFile.writeLine("@R15");
+            _outputFile.writeLine("M=D");
 
-    // result = 0
-    _outputFile.writeLine("@R16");
-    _outputFile.writeLine("M=0");
+            _outputFile.writeLine("@R16");
+            _outputFile.writeLine("M=0");
 
-    // divisor = 2 counter simulation
-    _outputFile.writeLine("(AVG_LOOP)");
+            _outputFile.writeLine("(AVG_LOOP)");
 
-    _outputFile.writeLine("@R15");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@2");
-    _outputFile.writeLine("D=D-A");
-    _outputFile.writeLine("@AVG_END");
-    _outputFile.writeLine("D;JLT");
+            _outputFile.writeLine("@R15");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@2");
+            _outputFile.writeLine("D=D-A");
+            _outputFile.writeLine("@AVG_END");
+            _outputFile.writeLine("D;JLT");
 
-    _outputFile.writeLine("@R15");
-    _outputFile.writeLine("M=M-1");
-    _outputFile.writeLine("M=M-1");
+            _outputFile.writeLine("@R15");
+            _outputFile.writeLine("M=M-1");
+            _outputFile.writeLine("M=M-1");
 
-    _outputFile.writeLine("@R16");
-    _outputFile.writeLine("M=M+1");
+            _outputFile.writeLine("@R16");
+            _outputFile.writeLine("M=M+1");
 
-    _outputFile.writeLine("@AVG_LOOP");
-    _outputFile.writeLine("0;JMP");
+            _outputFile.writeLine("@AVG_LOOP");
+            _outputFile.writeLine("0;JMP");
 
-    _outputFile.writeLine("(AVG_END)");
+            _outputFile.writeLine("(AVG_END)");
 
-    // push result
-    _outputFile.writeLine("@R16");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("A=M");
-    _outputFile.writeLine("M=D");
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("M=M+1");
-}
+            _outputFile.writeLine("@R16");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("A=M");
+            _outputFile.writeLine("M=D");
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("M=M+1")
+        }
     }
 
     handleComparison(string command)
@@ -230,162 +224,34 @@ class VMTranslator
             }
         }
     }
-    //step2
-handleProgramFlow(string command, string labelName)
-{
-    string fullLabel := _currentFileName + "." + labelName;
 
-    _outputFile.writeLine("// " + command + " " + labelName);
-
-    if (command == "label") {
-        _outputFile.writeLine("(" + fullLabel + ")");
-    }
-    else if (command == "goto") {
-        _outputFile.writeLine("@" + fullLabel);
-        _outputFile.writeLine("0;JMP");
-    }
-    else if (command == "if-goto") {
-        _outputFile.writeLine("@SP");
-        _outputFile.writeLine("AM=M-1");
-        _outputFile.writeLine("D=M");
-        _outputFile.writeLine("@" + fullLabel);
-        _outputFile.writeLine("D;JNE");
-    }
-}
-handleFunction(string functionName, string nVarsStr)
-{
-    int nVars := nVarsStr.toInt();
-
-    _outputFile.writeLine("// function " + functionName);
-    _outputFile.writeLine("(" + functionName + ")");
-
-    int i := 0;
-    while (i < nVars)
+    handleProgramFlow(string command, string labelName)
     {
-        _outputFile.writeLine("@0");
-        _outputFile.writeLine("D=A");
-        _outputFile.writeLine("@SP");
-        _outputFile.writeLine("A=M");
-        _outputFile.writeLine("M=D");
-        _outputFile.writeLine("@SP");
-        _outputFile.writeLine("M=M+1");
+        _outputFile.writeLine("// " + command + " " + labelName);
 
-        i := i + 1;
-    }
-}
-handleCall(string functionName, string nArgsStr)
-{
-    string returnLabel := "RETURN_" + _logicalCounter.toString();
-    _logicalCounter := _logicalCounter + 1;
-
-    _outputFile.writeLine("// call " + functionName);
-
-    // push return address
-    _outputFile.writeLine("@" + returnLabel);
-    _outputFile.writeLine("D=A");
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("A=M");
-    _outputFile.writeLine("M=D");
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("M=M+1");
-
-    // push LCL ARG THIS THAT
-    var segs := "LCL ARG THIS THAT".splitBy(" ");
-    int i := 0;
-    while (i < 4)
-    {
-        _outputFile.writeLine("@" + segs[i]);
-        _outputFile.writeLine("D=M");
-        _outputFile.writeLine("@SP");
-        _outputFile.writeLine("A=M");
-        _outputFile.writeLine("M=D");
-        _outputFile.writeLine("@SP");
-        _outputFile.writeLine("M=M+1");
-
-        i := i + 1;
+        if (command == "label") {
+            _outputFile.writeLine("(" + labelName + ")")
+        }
+        else if (command == "goto") {
+            _outputFile.writeLine("@" + labelName);
+            _outputFile.writeLine("0;JMP")
+        }
+        else if (command == "if-goto") {
+            _outputFile.writeLine("@SP");
+            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@" + labelName);
+            _outputFile.writeLine("D;JNE")
+        }
     }
 
-    // ARG = SP - 5 - nArgs
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@5");
-    _outputFile.writeLine("D=D-A");
-    _outputFile.writeLine("@" + nArgsStr);
-    _outputFile.writeLine("D=D-A");
-    _outputFile.writeLine("@ARG");
-    _outputFile.writeLine("M=D");
-
-    // LCL = SP
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@LCL");
-    _outputFile.writeLine("M=D");
-
-    // goto function
-    _outputFile.writeLine("@" + functionName);
-    _outputFile.writeLine("0;JMP");
-
-    _outputFile.writeLine("(" + returnLabel + ")");
-}
-handleReturn()
-{
-    _outputFile.writeLine("// return");
-
-    // FRAME = LCL
-    _outputFile.writeLine("@LCL");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@R13");
-    _outputFile.writeLine("M=D");
-
-    // RET = *(FRAME-5)
-    _outputFile.writeLine("@5");
-    _outputFile.writeLine("A=D-A");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@R14");
-    _outputFile.writeLine("M=D");
-
-    // *ARG = pop()
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("AM=M-1");
-    _outputFile.writeLine("D=M");
-    _outputFile.writeLine("@ARG");
-    _outputFile.writeLine("A=M");
-    _outputFile.writeLine("M=D");
-
-    // SP = ARG + 1
-    _outputFile.writeLine("@ARG");
-    _outputFile.writeLine("D=M+1");
-    _outputFile.writeLine("@SP");
-    _outputFile.writeLine("M=D");
-
-    // restore THAT THIS ARG LCL
-    var segs := "THAT THIS ARG LCL".splitBy(" ");
-    int i := 0;
-
-    while (i < 4)
-    {
-        _outputFile.writeLine("@R13");
-        _outputFile.writeLine("AM=M-1");
-        _outputFile.writeLine("D=M");
-        _outputFile.writeLine("@" + segs[i]);
-        _outputFile.writeLine("M=D");
-
-        i := i + 1;
-    }
-
-    // goto RET
-    _outputFile.writeLine("@R14");
-    _outputFile.writeLine("A=M");
-    _outputFile.writeLine("0;JMP");
-}
     translateFile(string fullPath)
     {
-        // חילוץ שם הקובץ ללא סיומת עבור משתנים סטטיים
         int pos := 0;
         int lastSlash := 0;
         while (pos < fullPath.Length) {
             int code := fullPath[pos];
-            if (code == 92 || code == 47) { lastSlash := pos + 1 }; // חיפוש לוכסן
+            if (code == 92 || code == 47) { lastSlash := pos + 1 };
             pos := pos + 1
         };
         string nameWithExt := fullPath.Substring(lastSlash, fullPath.Length - lastSlash);
@@ -393,19 +259,29 @@ handleReturn()
         int dotPos := nameWithExt.Length;
         pos := 0;
         while (pos < nameWithExt.Length) {
-            if (nameWithExt[pos] == 46) { dotPos := pos }; // חיפוש נקודה
+            if (nameWithExt[pos] == 46) { dotPos := pos };
             pos := pos + 1
         };
         _currentFileName := nameWithExt.Substring(0, dotPos);
 
-        // קריאת הקובץ ותרגום
         var reader := File.assign(fullPath).textreader();
         
         while (reader.Available)
         {
             string line := reader.readLine().trim();
-            
-            if (line.isEmpty() == false)
+
+            // החלפת tabs ברווחים
+            string cleanLine := "";
+            int ci := 0;
+            while (ci < line.Length) {
+                int ch := line[ci];
+                if (ch == 9) { cleanLine := cleanLine + " " }
+                else { cleanLine := cleanLine + line.Substring(ci, 1) };
+                ci := ci + 1
+            };
+            line := cleanLine.trim();
+
+            if (line.Length > 0)
             {
                 int commentIdx := line.indexOf(0, "//");
                 if (commentIdx == 0) { line := "" }
@@ -413,8 +289,37 @@ handleReturn()
 
                 if (line.Length > 0)
                 {
-                    var words := line.splitBy(" ");
-                    string cmd := words[0];
+                    // פיצול מילים תוך דילוג על רווחים כפולים
+                    string cmd  := "";
+                    string arg1 := "";
+                    string arg2 := "";
+                    int wordCount := 0;
+                    int wi := 0;
+                    string currentWord := "";
+
+                    while (wi < line.Length) {
+                        int wch := line[wi];
+                        if (wch == 32) {
+                            if (currentWord.Length > 0) {
+                                if (wordCount == 0) { cmd := currentWord }
+                                else if (wordCount == 1) { arg1 := currentWord }
+                                else if (wordCount == 2) { arg2 := currentWord };
+                                wordCount := wordCount + 1;
+                                currentWord := ""
+                            }
+                        }
+                        else {
+                            currentWord := currentWord + line.Substring(wi, 1)
+                        };
+                        wi := wi + 1
+                    };
+                    // המילה האחרונה
+                    if (currentWord.Length > 0) {
+                        if (wordCount == 0) { cmd := currentWord }
+                        else if (wordCount == 1) { arg1 := currentWord }
+                        else if (wordCount == 2) { arg2 := currentWord };
+                        wordCount := wordCount + 1
+                    };
 
                     if (cmd == "add" || cmd == "sub" || cmd == "neg" || cmd == "and" || cmd == "or" || cmd == "not" || cmd == "avg2") 
                     { 
@@ -426,30 +331,18 @@ handleReturn()
                     }
                     else if (cmd == "push" || cmd == "pop") 
                     { 
-                        if (words.Length > 2)
+                        if (wordCount > 2)
                         {
-                            handlePushPop(cmd, words[1], words[2])
+                            handlePushPop(cmd, arg1, arg2)
                         }
                     }
                     else if (cmd == "label" || cmd == "goto" || cmd == "if-goto")
                     {
-                        if (words.Length > 1)
+                        if (wordCount > 1)
                         {
-                           handleProgramFlow(cmd, words[1])
+                            handleProgramFlow(cmd, arg1)
                         }
                     }
-                    else if (cmd == "function")
-{
-    handleFunction(words[1], words[2])
-}
-else if (cmd == "call")
-{
-    handleCall(words[1], words[2])
-}
-else if (cmd == "return")
-{
-    handleReturn()
-}
                 }
             }
         };
@@ -464,7 +357,6 @@ public program()
     console.write("Enter directory path: ");
     string path := console.readLine();
     
-    // ניקוי המרכאות מהנתיב במקרה של העתקה מווינדוס
     string cleanPath := "";
     int pi := 0;
     while (pi < path.Length) {
@@ -473,7 +365,6 @@ public program()
         pi := pi + 1
     };
     
-    // מחיקת לוכסן סופי במקרה שהמשתמש העתיק נתיב עם \ בסוף
     int clen := cleanPath.Length;
     if (clen > 0) {
         int lastChar := cleanPath[clen - 1];
@@ -484,7 +375,6 @@ public program()
     
     path := cleanPath;
 
-    // מציאת שם התיקייה מתוך הנתיב המנוקה
     int pLen := path.Length;
     int dirPos := 0;
     int lastDirSlash := 0;
@@ -495,78 +385,27 @@ public program()
     };
     string dirName := path.Substring(lastDirSlash, pLen - lastDirSlash);
 
-    // הגנה למקרה חריג
     if (dirName.Length == 0) { dirName := "Output" };
 
-    // בניה בטוחה של נתיב הפלט בשלבים - למניעת שגיאת קומפילציה!
     string outPath := path + "\\";
     outPath := outPath + dirName;
     outPath := outPath + ".asm";
     
     var translator := VMTranslator.new(outPath);
-    // bootstrap
-    translator._outputFile.writeLine("// bootstrap");
-    translator._outputFile.writeLine("@256");
-    translator._outputFile.writeLine("D=A");
-    translator._outputFile.writeLine("@SP");
-    translator._outputFile.writeLine("M=D");
-
-// call Sys.init 0
-translator._outputFile.writeLine("@RETURN_BOOTSTRAP");
-translator._outputFile.writeLine("D=A");
-translator._outputFile.writeLine("@SP");
-translator._outputFile.writeLine("A=M");
-translator._outputFile.writeLine("M=D");
-translator._outputFile.writeLine("@SP");
-translator._outputFile.writeLine("M=M+1");
-
-// push LCL ARG THIS THAT
-var segs := "LCL ARG THIS THAT".splitBy(" ");
-int i := 0;
-while (i < 4)
-{
-    translator._outputFile.writeLine("@" + segs[i]);
-    translator._outputFile.writeLine("D=M");
-    translator._outputFile.writeLine("@SP");
-    translator._outputFile.writeLine("A=M");
-    translator._outputFile.writeLine("M=D");
-    translator._outputFile.writeLine("@SP");
-    translator._outputFile.writeLine("M=M+1");
-
-    i := i + 1;
-}
-
-// ARG = SP - 5
-translator._outputFile.writeLine("@SP");
-translator._outputFile.writeLine("D=M");
-translator._outputFile.writeLine("@5");
-translator._outputFile.writeLine("D=D-A");
-translator._outputFile.writeLine("@ARG");
-translator._outputFile.writeLine("M=D");
-
-// LCL = SP
-translator._outputFile.writeLine("@SP");
-translator._outputFile.writeLine("D=M");
-translator._outputFile.writeLine("@LCL");
-translator._outputFile.writeLine("M=D");
-
-// goto Sys.init
-translator._outputFile.writeLine("@Sys.init");
-translator._outputFile.writeLine("0;JMP");
-
-// return label
-translator._outputFile.writeLine("(RETURN_BOOTSTRAP)");
     var files := Directory.assign(path).getFiles();
     int count := files.Length;
     
     for (int i := 0; i < count; i := i + 1)
     {
         string currentFile := files[i].toString();
-        
-        if (currentFile.indexOf(0, ".vm") != -1) 
+        if (currentFile.Length > 3)
         {
-            translator.translateFile(currentFile);
-            console.writeLine("Processed file: " + currentFile)
+            string ext := currentFile.Substring(currentFile.Length - 3, 3);
+            if (ext == ".vm")
+            {
+                translator.translateFile(currentFile);
+                console.writeLine("Processed file: " + currentFile)
+            }
         }
     };
 
