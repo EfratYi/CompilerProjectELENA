@@ -1,0 +1,25 @@
+# folders you don't want
+nand2tetris/
+Step0/
+targil1/
+
+# build / compiled files
+*.exe
+*.out
+*.o
+
+# ELENA compiled files
+*.dn
+*.dnl
+*.nl
+
+# zip files
+*.zip
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
