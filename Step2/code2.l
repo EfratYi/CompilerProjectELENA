@@ -7,12 +7,14 @@ class VMTranslator
 {
     string _currentFileName;
     int    _logicalCounter;
+    int    _callCounter;
     object _outputFile;
 
     constructor new(string outputFileName)
     {
         _outputFile := File.assign(outputFileName).textwriter();
         _logicalCounter := 1;
+        _callCounter := 1;
         _currentFileName := "StaticVar"
     }
 
@@ -153,7 +155,7 @@ class VMTranslator
     handlePushPop(string command, string segment, string indexStr)
     {
         _outputFile.writeLine("// " + command + " " + segment + " " + indexStr);
-        
+       
         if (command == "push")
         {
             if (segment == "constant") {
@@ -167,7 +169,7 @@ class VMTranslator
                 else if (segment == "argument") { segPtr := "ARG" }
                 else if (segment == "this") { segPtr := "THIS" }
                 else { segPtr := "THAT" };
-                
+               
                 _outputFile.writeLine("@" + indexStr); _outputFile.writeLine("D=A");
                 _outputFile.writeLine("@" + segPtr); _outputFile.writeLine("A=M+D"); _outputFile.writeLine("D=M");
                 _outputFile.writeLine("@SP"); _outputFile.writeLine("A=M"); _outputFile.writeLine("M=D");
@@ -200,7 +202,7 @@ class VMTranslator
                 else if (segment == "argument") { segPtr := "ARG" }
                 else if (segment == "this") { segPtr := "THIS" }
                 else { segPtr := "THAT" };
-                
+               
                 _outputFile.writeLine("@" + indexStr); _outputFile.writeLine("D=A");
                 _outputFile.writeLine("@" + segPtr); _outputFile.writeLine("D=M+D");
                 _outputFile.writeLine("@R13"); _outputFile.writeLine("M=D");
@@ -262,12 +264,11 @@ class VMTranslator
             }
         }
         else if (command == "call") {
-            string returnLabel := arg1 + "$ret." + _logicalCounter.toString();
-            _logicalCounter := _logicalCounter + 1;
+            string returnLabel := arg1 + "$ret." + _callCounter.toString();
+            _callCounter := _callCounter + 1;
 
             _outputFile.writeLine("// call " + arg1 + " " + arg2);
 
-            // push return address
             _outputFile.writeLine("@" + returnLabel);
             _outputFile.writeLine("D=A");
             _outputFile.writeLine("@SP");
@@ -276,7 +277,6 @@ class VMTranslator
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("M=M+1");
 
-            // push LCL
             _outputFile.writeLine("@LCL");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@SP");
@@ -285,7 +285,6 @@ class VMTranslator
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("M=M+1");
 
-            // push ARG
             _outputFile.writeLine("@ARG");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@SP");
@@ -294,7 +293,6 @@ class VMTranslator
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("M=M+1");
 
-            // push THIS
             _outputFile.writeLine("@THIS");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@SP");
@@ -303,7 +301,6 @@ class VMTranslator
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("M=M+1");
 
-            // push THAT
             _outputFile.writeLine("@THAT");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@SP");
@@ -312,7 +309,6 @@ class VMTranslator
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("M=M+1");
 
-            // ARG = SP - n - 5
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@" + arg2);
@@ -322,36 +318,30 @@ class VMTranslator
             _outputFile.writeLine("@ARG");
             _outputFile.writeLine("M=D");
 
-            // LCL = SP
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@LCL");
             _outputFile.writeLine("M=D");
 
-            // goto function
             _outputFile.writeLine("@" + arg1);
             _outputFile.writeLine("0;JMP");
 
-            // return label
             _outputFile.writeLine("(" + returnLabel + ")")
         }
         else if (command == "return") {
             _outputFile.writeLine("// return");
 
-            // FRAME = LCL  (store in R14)
             _outputFile.writeLine("@LCL");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@R14");
             _outputFile.writeLine("M=D");
 
-            // RET = *(FRAME-5)  (store in R15)
             _outputFile.writeLine("@5");
             _outputFile.writeLine("A=D-A");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@R15");
             _outputFile.writeLine("M=D");
 
-            // *ARG = pop()
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("AM=M-1");
             _outputFile.writeLine("D=M");
@@ -359,41 +349,43 @@ class VMTranslator
             _outputFile.writeLine("A=M");
             _outputFile.writeLine("M=D");
 
-            // SP = ARG+1
             _outputFile.writeLine("@ARG");
             _outputFile.writeLine("D=M+1");
             _outputFile.writeLine("@SP");
             _outputFile.writeLine("M=D");
 
-            // THAT = *(FRAME-1)
             _outputFile.writeLine("@R14");
-            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@1");
+            _outputFile.writeLine("A=D-A");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@THAT");
             _outputFile.writeLine("M=D");
 
-            // THIS = *(FRAME-2)
             _outputFile.writeLine("@R14");
-            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@2");
+            _outputFile.writeLine("A=D-A");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@THIS");
             _outputFile.writeLine("M=D");
 
-            // ARG = *(FRAME-3)
             _outputFile.writeLine("@R14");
-            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@3");
+            _outputFile.writeLine("A=D-A");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@ARG");
             _outputFile.writeLine("M=D");
 
-            // LCL = *(FRAME-4)
             _outputFile.writeLine("@R14");
-            _outputFile.writeLine("AM=M-1");
+            _outputFile.writeLine("D=M");
+            _outputFile.writeLine("@4");
+            _outputFile.writeLine("A=D-A");
             _outputFile.writeLine("D=M");
             _outputFile.writeLine("@LCL");
             _outputFile.writeLine("M=D");
 
-            // goto RET
             _outputFile.writeLine("@R15");
             _outputFile.writeLine("A=M");
             _outputFile.writeLine("0;JMP")
@@ -410,6 +402,76 @@ class VMTranslator
         handleFunctionCallReturn("call", "Sys.init", "0")
     }
 
+    processSingleLine(string textLine)
+    {
+        string cleanLine := "";
+        int ci := 0;
+        while (ci < textLine.Length) {
+            int ch := textLine[ci];
+            if (ch == 9 || ch == 160) { cleanLine := cleanLine + " " }
+            else { cleanLine := cleanLine + textLine.Substring(ci, 1) };
+            ci := ci + 1
+        };
+        string line := cleanLine.trim();
+
+        if (line.Length > 0)
+        {
+            int commentIdx := line.indexOf(0, "//");
+            if (commentIdx == 0) { line := "" }
+            else if (commentIdx > 0) { line := line.Substring(0, commentIdx).trim() };
+
+            if (line.Length > 0)
+            {
+                string cmd  := "";
+                string arg1 := "";
+                string arg2 := "";
+                int wordCount := 0;
+                int wi := 0;
+                string currentWord := "";
+
+                while (wi < line.Length) {
+                    int wch := line[wi];
+                    if (wch == 32) {
+                        if (currentWord.Length > 0) {
+                            if (wordCount == 0) { cmd := currentWord }
+                            else if (wordCount == 1) { arg1 := currentWord }
+                            else if (wordCount == 2) { arg2 := currentWord };
+                            wordCount := wordCount + 1;
+                            currentWord := ""
+                        }
+                    }
+                    else {
+                        currentWord := currentWord + line.Substring(wi, 1)
+                    };
+                    wi := wi + 1
+                };
+                if (currentWord.Length > 0) {
+                    if (wordCount == 0) { cmd := currentWord }
+                    else if (wordCount == 1) { arg1 := currentWord }
+                    else if (wordCount == 2) { arg2 := currentWord };
+                    wordCount := wordCount + 1
+                };
+
+                console.writeLine("DEBUG: Parsed -> cmd=[" + cmd + "] arg1=[" + arg1 + "] arg2=[" + arg2 + "]");
+
+                if (cmd == "add" || cmd == "sub" || cmd == "neg" || cmd == "and" || cmd == "or" || cmd == "not" || cmd == "avg2")
+                { handleArithmetic(cmd) }
+                else if (cmd == "eq" || cmd == "gt" || cmd == "lt")
+                { handleComparison(cmd) }
+                else if (cmd == "push" || cmd == "pop")
+                { if (wordCount > 2) { handlePushPop(cmd, arg1, arg2) } }
+                else if (cmd == "label" || cmd == "goto" || cmd == "if-goto")
+                { if (wordCount > 1) { handleProgramFlow(cmd, arg1) } }
+                else if (cmd == "function")
+                { if (wordCount > 2) { handleFunctionCallReturn(cmd, arg1, arg2) } }
+                else if (cmd == "call")
+                { if (wordCount > 2) { handleFunctionCallReturn(cmd, arg1, arg2) } }
+                else if (cmd == "return")
+                { handleFunctionCallReturn(cmd, "", "") }
+            }
+        }
+    }
+
     translateFile(string fullPath)
     {
         int pos := 0;
@@ -420,7 +482,7 @@ class VMTranslator
             pos := pos + 1
         };
         string nameWithExt := fullPath.Substring(lastSlash, fullPath.Length - lastSlash);
-        
+       
         int dotPos := nameWithExt.Length;
         pos := 0;
         while (pos < nameWithExt.Length) {
@@ -429,124 +491,64 @@ class VMTranslator
         };
         _currentFileName := nameWithExt.Substring(0, dotPos);
 
+        console.writeLine("======================================");
+        console.writeLine("DEBUG: Start processing file -> " + fullPath);
+       
         var reader := File.assign(fullPath).textreader();
-        
+       
         while (reader.Available)
         {
-            string line := reader.readLine().trim();
-
-            // replace tabs with spaces
-            string cleanLine := "";
-            int ci := 0;
-            while (ci < line.Length) {
-                int ch := line[ci];
-                if (ch == 9) { cleanLine := cleanLine + " " }
-                else { cleanLine := cleanLine + line.Substring(ci, 1) };
-                ci := ci + 1
-            };
-            line := cleanLine.trim();
-
-            if (line.Length > 0)
-            {
-                int commentIdx := line.indexOf(0, "//");
-                if (commentIdx == 0) { line := "" }
-                else if (commentIdx > 0) { line := line.Substring(0, commentIdx).trim() };
-
-                if (line.Length > 0)
-                {
-                    string cmd  := "";
-                    string arg1 := "";
-                    string arg2 := "";
-                    int wordCount := 0;
-                    int wi := 0;
-                    string currentWord := "";
-
-                    while (wi < line.Length) {
-                        int wch := line[wi];
-                        if (wch == 32) {
-                            if (currentWord.Length > 0) {
-                                if (wordCount == 0) { cmd := currentWord }
-                                else if (wordCount == 1) { arg1 := currentWord }
-                                else if (wordCount == 2) { arg2 := currentWord };
-                                wordCount := wordCount + 1;
-                                currentWord := ""
-                            }
+            var rawLine := reader.readLine();
+            if (nil != rawLine) {
+                string fullText := rawLine.toString();
+                string singleLine := "";
+                int charIndex := 0;
+               
+                while (charIndex < fullText.Length) {
+                    int ch := fullText[charIndex];
+                   
+                    if (ch == 10 || ch == 13) {
+                        if (singleLine.Length > 0) {
+                            processSingleLine(singleLine.trim());
+                            singleLine := ""
                         }
-                        else {
-                            currentWord := currentWord + line.Substring(wi, 1)
-                        };
-                        wi := wi + 1
+                    } else {
+                        singleLine := singleLine + fullText.Substring(charIndex, 1)
                     };
-                    // last word
-                    if (currentWord.Length > 0) {
-                        if (wordCount == 0) { cmd := currentWord }
-                        else if (wordCount == 1) { arg1 := currentWord }
-                        else if (wordCount == 2) { arg2 := currentWord };
-                        wordCount := wordCount + 1
-                    };
-
-                    if (cmd == "add" || cmd == "sub" || cmd == "neg" || cmd == "and" || cmd == "or" || cmd == "not" || cmd == "avg2") 
-                    { 
-                        handleArithmetic(cmd) 
-                    }
-                    else if (cmd == "eq" || cmd == "gt" || cmd == "lt") 
-                    { 
-                        handleComparison(cmd) 
-                    }
-                    else if (cmd == "push" || cmd == "pop") 
-                    { 
-                        if (wordCount > 2)
-                        {
-                            handlePushPop(cmd, arg1, arg2)
-                        }
-                    }
-                    else if (cmd == "label" || cmd == "goto" || cmd == "if-goto")
-                    {
-                        if (wordCount > 1)
-                        {
-                            handleProgramFlow(cmd, arg1)
-                        }
-                    }
-                    else if (cmd == "function")
-                    {
-                        if (wordCount > 2)
-                        {
-                            handleFunctionCallReturn(cmd, arg1, arg2)
-                        }
-                    }
-                    else if (cmd == "call")
-                    {
-                        if (wordCount > 2)
-                        {
-                            handleFunctionCallReturn(cmd, arg1, arg2)
-                        }
-                    }
-                    else if (cmd == "return")
-                    {
-                        handleFunctionCallReturn(cmd, "", "")
-                    }
+                    charIndex := charIndex + 1
+                };
+               
+                if (singleLine.Length > 0) {
+                    processSingleLine(singleLine.trim())
                 }
             }
         };
+       
+        console.writeLine("DEBUG: Finished processing.");
+        console.writeLine("======================================");
         reader.close()
     }
 
-    close() { _outputFile.close() }
+    close() {
+        _outputFile.close()
+    }
 }
 
 public program()
 {
-    console.write("Enter directory path: ");
+    console.write("Enter path (file or directory): ");
     string path := console.readLine();
-    
+   
     string cleanPath := "";
     int pi := 0;
     while (pi < path.Length) {
         int pc := path[pi];
-        if (pc != 34) { cleanPath := cleanPath + path.Substring(pi, 1) };
+        if (pc != 34 && pc != 13 && pc != 10) {
+            cleanPath := cleanPath + path.Substring(pi, 1)
+        };
         pi := pi + 1
     };
-    
+   
     int clen := cleanPath.Length;
     if (clen > 0) {
         int lastChar := cleanPath[clen - 1];
@@ -554,46 +556,89 @@ public program()
             cleanPath := cleanPath.Substring(0, clen - 1)
         }
     };
-    
+   
     path := cleanPath;
+    console.writeLine("DEBUG PATH: [" + path + "]");
 
-    int pLen := path.Length;
-    int dirPos := 0;
-    int lastDirSlash := 0;
-    while (dirPos < pLen) {
-        int dc := path[dirPos];
-        if (dc == 92 || dc == 47) { lastDirSlash := dirPos + 1 };
-        dirPos := dirPos + 1
+    bool isSingleFile := false;
+    if (path.Length > 3) {
+        string ext := path.Substring(path.Length - 3, 3);
+        if (ext == ".vm") { isSingleFile := true }
     };
-    string dirName := path.Substring(lastDirSlash, pLen - lastDirSlash);
 
-    if (dirName.Length == 0) { dirName := "Output" };
-
-    string outPath := path + "\\";
-    outPath := outPath + dirName;
-    outPath := outPath + ".asm";
-    
-    var translator := VMTranslator.new(outPath);
-    translator.writeBootstrap();
-    var files := Directory.assign(path).getFiles();
-    int count := files.Length;
-    
-    for (int i := 0; i < count; i := i + 1)
-    {
-        string currentFile := files[i].toString();
-        if (currentFile.Length > 3)
-        {
-            string ext := currentFile.Substring(currentFile.Length - 3, 3);
-            if (ext == ".vm")
-            {
-                translator.translateFile(currentFile);
-                console.writeLine("Processed file: " + currentFile)
-            }
+    if (isSingleFile) {
+        string outPath := path.Substring(0, path.Length - 3) + ".asm";
+        var translator := VMTranslator.new(outPath);
+       
+        try {
+            translator.translateFile(path)
         }
-    };
+        catch(Exception e) {
+            console.writeLine("CRASH CAUGHT: " + e.Message)
+        };
+       
+        translator.close();
+       
+        console.writeLine("Processed single file: " + path);
+        console.writeLine("Done! Created: " + outPath);
+        console.readChar()
+    }
+    else {
+        int pLen := path.Length;
+        int dirPos := 0;
+        int lastDirSlash := 0;
+        while (dirPos < pLen) {
+            int dc := path[dirPos];
+            if (dc == 92 || dc == 47) { lastDirSlash := dirPos + 1 };
+            dirPos := dirPos + 1
+        };
+        string dirName := path.Substring(lastDirSlash, pLen - lastDirSlash);
 
-    translator.close();
-    console.write("Done! Created: ");
-    console.writeLine(dirName + ".asm");
-    console.readChar()
+        if (dirName.Length == 0) { dirName := "Output" };
+
+        string outPath := path + "\\";
+        outPath := outPath + dirName;
+        outPath := outPath + ".asm";
+       
+        var translator := VMTranslator.new(outPath);
+        var files := Directory.assign(path).getFiles();
+        int count := files.Length;
+
+        bool hasSys := false;
+        for (int i := 0; i < count; i := i + 1)
+        {
+            string f := files[i].toString();
+            int flen := f.Length;
+            if (flen >= 6) {
+                string tail := f.Substring(flen - 6, 6);
+                if (tail == "Sys.vm") { hasSys := true }
+            }
+        };
+       
+        if (hasSys) { translator.writeBootstrap() };
+
+        for (int i := 0; i < count; i := i + 1)
+        {
+            string currentFile := files[i].toString();
+            if (currentFile.Length > 3)
+            {
+                string ext := currentFile.Substring(currentFile.Length - 3, 3);
+                if (ext == ".vm")
+                {
+                    try {
+                        translator.translateFile(currentFile);
+                        console.writeLine("Processed file: " + currentFile)
+                    }
+                    catch(Exception e) {
+                        console.writeLine("CRASH CAUGHT on file " + currentFile + ": " + e.Message)
+                    }
+                }
+            }
+        };
+
+        translator.close();
+        console.write("Done! Created: ");
+        console.writeLine(dirName + ".asm");
+        console.readChar()
+    }
 }
