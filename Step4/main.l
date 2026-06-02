@@ -482,6 +482,558 @@ class JackTokenizer
     }
 }
 
+class CompilationEngine
+{
+    ArrayList _tokens;
+    int _p;
+    object _out;
+    ArrayList _opList;
+    int _indent;
+
+    constructor new(ArrayList tokens, object outputFile)
+    {
+        _tokens := tokens;
+        _out := outputFile;
+        _p := 0;
+        _indent := 0;
+
+        _opList := new ArrayList();
+        _opList.append("+");
+        _opList.append("-");
+        _opList.append("*");
+        _opList.append("/");
+        _opList.append("&amp;");
+        _opList.append("|");
+        _opList.append("&lt;");
+        _opList.append("&gt;");
+        _opList.append("=");
+    }
+
+    string spaces()
+    {
+        string s := "";
+        int i := 0;
+
+        while (i < _indent)
+        {
+            s := s + "  ";
+            i := i + 1
+        };
+
+        ^ s
+    }
+
+    writeIndented(string text)
+    {
+        _out.writeLine(spaces() + text)
+    }
+
+    openTag(string tag)
+    {
+        writeIndented("<" + tag + ">");
+        _indent := _indent + 1
+    }
+
+    closeTag(string tag)
+    {
+        _indent := _indent - 1;
+        writeIndented("</" + tag + ">")
+    }
+
+    string currentToken()
+    {
+        if (_p < _tokens.Length)
+        {
+            ^ _tokens[_p].toString()
+        };
+
+        ^ ""
+    }
+
+    string getTokenValue(string tokenLine)
+    {
+        int start := tokenLine.indexOf(0, ">");
+        int end := tokenLine.indexOf(0, "</");
+
+        if (start >= 0)
+        {
+            if (end > start)
+            {
+                ^ tokenLine.Substring(start + 2, end - start - 3)
+            }
+        };
+
+        ^ ""
+    }
+
+    string getTagName(string tokenLine)
+    {
+        int start := tokenLine.indexOf(0, "<");
+        int end := tokenLine.indexOf(0, ">");
+
+        if (start >= 0)
+        {
+            if (end > start)
+            {
+                ^ tokenLine.Substring(start + 1, end - start - 1)
+            }
+        };
+
+        ^ ""
+    }
+
+    bool isOp(string val)
+    {
+        int len := _opList.Length;
+
+        for (int i := 0; i < len; i := i + 1)
+        {
+            if (_opList[i].toString() == val)
+            {
+                ^ true
+            }
+        };
+
+        ^ false
+    }
+
+    process()
+    {
+        writeIndented(currentToken());
+        _p := _p + 1
+    }
+
+    compileClass()
+    {
+        openTag("class");
+
+        process(); // class
+        process(); // className
+        process(); // {
+
+        bool classVarGo := true;
+
+        while (classVarGo)
+        {
+            string val := getTokenValue(currentToken());
+
+            if (val == "static")
+            {
+                compileClassVarDec()
+            }
+            else
+            {
+                if (val == "field")
+                {
+                    compileClassVarDec()
+                }
+                else
+                {
+                    classVarGo := false
+                }
+            }
+        };
+
+        bool subGo := true;
+
+        while (subGo)
+        {
+            string val2 := getTokenValue(currentToken());
+
+            if (val2 == "constructor")
+            {
+                compileSubroutine()
+            }
+            else
+            {
+                if (val2 == "function")
+                {
+                    compileSubroutine()
+                }
+                else
+                {
+                    if (val2 == "method")
+                    {
+                        compileSubroutine()
+                    }
+                    else
+                    {
+                        subGo := false
+                    }
+                }
+            }
+        };
+
+        process(); // }
+
+        closeTag("class")
+    }
+
+    compileClassVarDec()
+    {
+        openTag("classVarDec");
+
+        process();
+        process();
+        process();
+
+        while (getTokenValue(currentToken()) == ",")
+        {
+            process();
+            process()
+        };
+
+        process();
+
+        closeTag("classVarDec")
+    }
+
+    compileSubroutine()
+    {
+        openTag("subroutineDec");
+
+        process();
+        process();
+        process();
+        process();
+
+        compileParameterList();
+
+        process();
+
+        openTag("subroutineBody");
+
+        process();
+
+        while (getTokenValue(currentToken()) == "var")
+        {
+            compileVarDec()
+        };
+
+        compileStatements();
+
+        process();
+
+        closeTag("subroutineBody");
+
+        closeTag("subroutineDec")
+    }
+
+    compileParameterList()
+    {
+        openTag("parameterList");
+
+        if (getTokenValue(currentToken()) != ")")
+        {
+            process();
+            process();
+
+            while (getTokenValue(currentToken()) == ",")
+            {
+                process();
+                process();
+                process()
+            }
+        };
+
+        closeTag("parameterList")
+    }
+
+    compileVarDec()
+    {
+        openTag("varDec");
+
+        process();
+        process();
+        process();
+
+        while (getTokenValue(currentToken()) == ",")
+        {
+            process();
+            process()
+        };
+
+        process();
+
+        closeTag("varDec")
+    }
+
+    compileStatements()
+    {
+        openTag("statements");
+
+        bool go := true;
+
+        while (go)
+        {
+            string val := getTokenValue(currentToken());
+
+            if (val == "let")
+            {
+                compileLet()
+            }
+            else
+            {
+                if (val == "if")
+                {
+                    compileIf()
+                }
+                else
+                {
+                    if (val == "while")
+                    {
+                        compileWhile()
+                    }
+                    else
+                    {
+                        if (val == "do")
+                        {
+                            compileDo()
+                        }
+                        else
+                        {
+                            if (val == "return")
+                            {
+                                compileReturn()
+                            }
+                            else
+                            {
+                                go := false
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        closeTag("statements")
+    }
+
+    compileLet()
+    {
+        openTag("letStatement");
+
+        process();
+        process();
+
+        if (getTokenValue(currentToken()) == "[")
+        {
+            process();
+            compileExpression();
+            process()
+        };
+
+        process();
+        compileExpression();
+        process();
+
+        closeTag("letStatement")
+    }
+
+    compileIf()
+    {
+        openTag("ifStatement");
+
+        process();
+        process();
+        compileExpression();
+        process();
+        process();
+        compileStatements();
+        process();
+
+        if (getTokenValue(currentToken()) == "else")
+        {
+            process();
+            process();
+            compileStatements();
+            process()
+        };
+
+        closeTag("ifStatement")
+    }
+
+    compileWhile()
+    {
+        openTag("whileStatement");
+
+        process();
+        process();
+        compileExpression();
+        process();
+        process();
+        compileStatements();
+        process();
+
+        closeTag("whileStatement")
+    }
+
+    compileDo()
+    {
+        openTag("doStatement");
+
+        process();
+        compileSubroutineCall();
+        process();
+
+        closeTag("doStatement")
+    }
+
+    compileReturn()
+    {
+        openTag("returnStatement");
+
+        process();
+
+        if (getTokenValue(currentToken()) != ";")
+        {
+            compileExpression()
+        };
+
+        process();
+
+        closeTag("returnStatement")
+    }
+
+    compileExpression()
+    {
+        openTag("expression");
+
+        compileTerm();
+
+        while (isOp(getTokenValue(currentToken())))
+        {
+            process();
+            compileTerm()
+        };
+
+        closeTag("expression")
+    }
+
+    compileTerm()
+    {
+        openTag("term");
+
+        string tag := getTagName(currentToken());
+        string val := getTokenValue(currentToken());
+
+        if (tag == "integerConstant")
+        {
+            process()
+        }
+        else
+        {
+            if (tag == "stringConstant")
+            {
+                process()
+            }
+            else
+            {
+                if (tag == "keyword")
+                {
+                    process()
+                }
+                else
+                {
+                    if (tag == "identifier")
+                    {
+                        process();
+
+                        string nextVal := getTokenValue(currentToken());
+
+                        if (nextVal == "[")
+                        {
+                            process();
+                            compileExpression();
+                            process()
+                        }
+                        else
+                        {
+                            if (nextVal == "(")
+                            {
+                                process();
+                                compileExpressionList();
+                                process()
+                            }
+                            else
+                            {
+                                if (nextVal == ".")
+                                {
+                                    process();
+                                    process();
+                                    process();
+                                    compileExpressionList();
+                                    process()
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (val == "(")
+                        {
+                            process();
+                            compileExpression();
+                            process()
+                        }
+                        else
+                        {
+                            if (val == "-")
+                            {
+                                process();
+                                compileTerm()
+                            }
+                            else
+                            {
+                                if (val == "~")
+                                {
+                                    process();
+                                    compileTerm()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        closeTag("term")
+    }
+
+    compileExpressionList()
+    {
+        openTag("expressionList");
+
+        if (getTokenValue(currentToken()) != ")")
+        {
+            compileExpression();
+
+            while (getTokenValue(currentToken()) == ",")
+            {
+                process();
+                compileExpression()
+            }
+        };
+
+        closeTag("expressionList")
+    }
+
+    compileSubroutineCall()
+    {
+        process();
+
+        if (getTokenValue(currentToken()) == ".")
+        {
+            process();
+            process()
+        };
+
+        process();
+        compileExpressionList();
+        process()
+    }
+}
+
 public program()
 {
     console.write("Enter Jack file path: ");
@@ -495,26 +1047,42 @@ public program()
     console.writeLine("Tokens count:");
     console.writeLine(tokens.Length);
 
-    string outPath := path.Substring(0, path.Length - 5) + "T.xml";
+    // =========================
+    // Part A - T.xml
+    // =========================
 
-    var outputFile := File.assign(outPath).textwriter();
+    string outPathT := path.Substring(0, path.Length - 5) + "T.xml";
 
-    outputFile.writeLine("<tokens>");
+    var outputFileT := File.assign(outPathT).textwriter();
+
+    outputFileT.writeLine("<tokens>");
 
     int len := tokens.Length;
 
     for (int i := 0; i < len; i := i + 1)
     {
-        outputFile.writeLine(tokens[i].toString())
+        outputFileT.writeLine(tokens[i].toString())
     };
 
-    outputFile.writeLine("</tokens>");
+    outputFileT.writeLine("</tokens>");
 
-    outputFile.close();
+    outputFileT.close();
 
-    console.writeLine("Done!");
+    // =========================
+    // Part B - .xml
+    // =========================
+
+    string outPathParse := path.Substring(0, path.Length - 5) + ".xml";
+
+    var outputFileParse := File.assign(outPathParse).textwriter();
+
+    var engine := CompilationEngine.new(tokens, outputFileParse);
+
+    engine.compileClass();
+
+    outputFileParse.close();
+
+    console.writeLine("Done! Created T.xml and .xml");
 
     console.readChar()
 }
-
-
