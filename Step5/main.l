@@ -481,7 +481,6 @@ class JackTokenizer
         ^ tokensList
     }
 }
-
 class SymbolInfo
 {
     string _name;
@@ -766,73 +765,28 @@ class VMWriter
 }
 
 
-
 class CompilationEngine
 {
     ArrayList _tokens;
     int _p;
-    object _out;
-    ArrayList _opList;
-    int _indent;
-    VMWriter _vm;
-    SymbolTable _symbols;
     string _className;
-    string _subroutineName;
-    int _whileCounter;
-    int _ifCounter;
+    SymbolTable _symbols;
+    VMWriter _vm;
+    int _labelCounter;
 
-    constructor new(ArrayList tokens,VMWriter vmWriter,SymbolTable symbols)
-   {
-      _tokens := tokens;
-
-      _vm := vmWriter;
-      _symbols := symbols;
-
-      _p := 0;
-
-      _className := "";
-
-      _whileCounter := 0;
-      _ifCounter := 0;
-    }
-    string spaces()
+    constructor new(ArrayList tokens, VMWriter vmWriter)
     {
-        string s := "";
-        int i := 0;
-
-        while (i < _indent)
-        {
-            s := s + "  ";
-            i := i + 1
-        };
-
-        ^ s
-    }
-
-    writeIndented(string text)
-    {
-        _out.writeLine(spaces() + text)
-    }
-
-    openTag(string tag)
-    {
-        writeIndented("<" + tag + ">");
-        _indent := _indent + 1
-    }
-
-    closeTag(string tag)
-    {
-        _indent := _indent - 1;
-        writeIndented("</" + tag + ">")
+        _tokens := tokens;
+        _p := 0;
+        _className := "";
+        _symbols := SymbolTable.new();
+        _vm := vmWriter;
+        _labelCounter := 0
     }
 
     string currentToken()
     {
-        if (_p < _tokens.Length)
-        {
-            ^ _tokens[_p].toString()
-        };
-
+        if (_p < _tokens.Length) { ^ _tokens[_p].toString() };
         ^ ""
     }
 
@@ -868,492 +822,586 @@ class CompilationEngine
         ^ ""
     }
 
+    string advance()
+    {
+        string val := getTokenValue(currentToken());
+        _p := _p + 1;
+        ^ val
+    }
+
+    string newLabel(string base)
+    {
+        string label := base + _labelCounter.toString();
+        _labelCounter := _labelCounter + 1;
+        ^ label
+    }
+
     bool isOp(string val)
     {
-        int len := _opList.Length;
-
-        for (int i := 0; i < len; i := i + 1)
-        {
-            if (_opList[i].toString() == val)
-            {
-                ^ true
-            }
-        };
-
+        if (val == "+") { ^ true };
+        if (val == "-") { ^ true };
+        if (val == "*") { ^ true };
+        if (val == "/") { ^ true };
+        if (val == "&amp;") { ^ true };
+        if (val == "|") { ^ true };
+        if (val == "&lt;") { ^ true };
+        if (val == "&gt;") { ^ true };
+        if (val == "=") { ^ true };
         ^ false
     }
 
-    process()
-{
-    _p := _p + 1
-}
-
-compileClass()
-{
-    process(); // class
-
-    _className :=
-        getTokenValue(currentToken());
-
-    process(); // className
-
-    process(); // {
-
-    bool classVarGo := true;
-
-    while (classVarGo)
+    writeOp(string op)
     {
-        string val :=
-            getTokenValue(currentToken());
+        if (op == "+") { _vm.writeArithmetic("add") };
+        if (op == "-") { _vm.writeArithmetic("sub") };
+        if (op == "*") { _vm.writeCall("Math.multiply", 2) };
+        if (op == "/") { _vm.writeCall("Math.divide", 2) };
+        if (op == "&amp;") { _vm.writeArithmetic("and") };
+        if (op == "|") { _vm.writeArithmetic("or") };
+        if (op == "&lt;") { _vm.writeArithmetic("lt") };
+        if (op == "&gt;") { _vm.writeArithmetic("gt") };
+        if (op == "=") { _vm.writeArithmetic("eq") }
+    }
 
-        if (val == "static")
+    compileClass()
+    {
+        advance();
+        _className := advance();
+        advance();
+
+        while (getTokenValue(currentToken()) == "static")
         {
             compileClassVarDec()
-        }
-        else
-        {
-            if (val == "field")
-            {
-                compileClassVarDec()
-            }
-            else
-            {
-                classVarGo := false
-            }
-        }
-    };
+        };
 
-    bool subGo := true;
-
-    while (subGo)
-    {
-        string val2 :=getTokenValue(currentToken());
-
-        if (val2 == "constructor")
+        while (getTokenValue(currentToken()) == "field")
         {
-            compileSubroutine()
-        }
-        else
+            compileClassVarDec()
+        };
+
+        bool go := true;
+
+        while (go)
         {
-            if (val2 == "function")
+            string val := getTokenValue(currentToken());
+
+            if (val == "constructor")
             {
                 compileSubroutine()
             }
             else
             {
-                if (val2 == "method")
+                if (val == "function")
                 {
                     compileSubroutine()
                 }
                 else
                 {
-                    subGo := false
-                }
-            }
-        }
-    };
-
-    process(); // }
-}
-
-    compileClassVarDec()
-    {
-        openTag("classVarDec");
-
-        process();
-        process();
-        process();
-
-        while (getTokenValue(currentToken()) == ",")
-        {
-            process();
-            process()
-        };
-
-        process();
-
-        closeTag("classVarDec")
-    }
-
-    compileSubroutine()
-{
-    _symbols.startSubroutine();
-
-    string subroutineType :=
-        getTokenValue(currentToken());
-
-    process(); // constructor/function/method
-
-    process(); // return type
-
-    _subroutineName :=
-        getTokenValue(currentToken());
-
-    process(); // name
-
-    process(); // (
-
-    compileParameterList();
-
-    process(); // )
-
-    process(); // {
-
-    int localCount := 0;
-
-    while (getTokenValue(currentToken()) == "var")
-    {
-        compileVarDec();
-
-        localCount :=
-            _symbols.varCount("var")
-    };
-
-    _vm.writeFunction(
-        _className + "." + _subroutineName,
-        localCount
-    );
-
-    compileStatements();
-
-    process(); // }
-
-}
-
-    compileParameterList()
-{
-    if (getTokenValue(currentToken()) != ")")
-    {
-        string typeName :=
-            getTokenValue(currentToken());
-
-        process(); // type
-
-        string varName :=
-            getTokenValue(currentToken());
-
-        _symbols.define(
-            varName,
-            typeName,
-            "argument"
-        );
-
-        process(); // varName
-
-        while (getTokenValue(currentToken()) == ",")
-        {
-            process(); // ,
-
-            typeName :=
-                getTokenValue(currentToken());
-
-            process(); // type
-
-            varName :=
-                getTokenValue(currentToken());
-
-            _symbols.define(
-                varName,
-                typeName,
-                "argument"
-            );
-
-            process(); // varName
-        }
-    }
-}
-
-   compileVarDec()
-{
-    process(); // var
-
-    string typeName :=
-        getTokenValue(currentToken());
-
-    process(); // type
-
-    string varName :=
-        getTokenValue(currentToken());
-
-    _symbols.define(
-        varName,
-        typeName,
-        "var"
-    );
-
-    process(); // varName
-
-    while (getTokenValue(currentToken()) == ",")
-    {
-        process(); // ,
-
-        varName :=
-            getTokenValue(currentToken());
-
-        _symbols.define(
-            varName,
-            typeName,
-            "var"
-        );
-
-        process(); // varName
-    };
-
-    process(); // ;
-}
-compileStatements()
-{
-    bool go := true;
-
-    while (go)
-    {
-        string val := getTokenValue(currentToken());
-
-        if (val == "let")
-        {
-            compileLet()
-        }
-        else
-        {
-            if (val == "if")
-            {
-                compileIf()
-            }
-            else
-            {
-                if (val == "while")
-                {
-                    compileWhile()
-                }
-                else
-                {
-                    if (val == "do")
+                    if (val == "method")
                     {
-                        compileDo()
+                        compileSubroutine()
                     }
                     else
                     {
-                        if (val == "return")
+                        go := false
+                    }
+                }
+            }
+        }
+    }
+
+    compileClassVarDec()
+    {
+        string kindName := advance();
+        string typeName := advance();
+        string name := advance();
+
+        _symbols.define(name, typeName, kindName);
+
+        while (getTokenValue(currentToken()) == ",")
+        {
+            advance();
+            name := advance();
+            _symbols.define(name, typeName, kindName)
+        };
+
+        advance()
+    }
+
+    compileSubroutine()
+    {
+        string subType := advance();
+        advance();
+        string subName := advance();
+
+        _symbols.startSubroutine();
+
+        if (subType == "method")
+        {
+            _symbols.define("this", _className, "argument")
+        };
+
+        advance();
+        compileParameterList();
+        advance();
+
+        advance();
+
+        while (getTokenValue(currentToken()) == "var")
+        {
+            compileVarDec()
+        };
+
+        int nLocals := _symbols.varCount("var");
+
+        _vm.writeFunction(_className + "." + subName, nLocals);
+
+        if (subType == "constructor")
+        {
+            int fields := _symbols.varCount("field");
+            _vm.writePush("constant", fields);
+            _vm.writeCall("Memory.alloc", 1);
+            _vm.writePop("pointer", 0)
+        };
+
+        if (subType == "method")
+        {
+            _vm.writePush("argument", 0);
+            _vm.writePop("pointer", 0)
+        };
+
+        compileStatements();
+
+        advance()
+    }
+
+    compileParameterList()
+    {
+        if (getTokenValue(currentToken()) != ")")
+        {
+            string typeName := advance();
+            string name := advance();
+
+            _symbols.define(name, typeName, "argument");
+
+            while (getTokenValue(currentToken()) == ",")
+            {
+                advance();
+                typeName := advance();
+                name := advance();
+                _symbols.define(name, typeName, "argument")
+            }
+        }
+    }
+
+    compileVarDec()
+    {
+        advance();
+        string typeName := advance();
+        string name := advance();
+
+        _symbols.define(name, typeName, "var");
+
+        while (getTokenValue(currentToken()) == ",")
+        {
+            advance();
+            name := advance();
+            _symbols.define(name, typeName, "var")
+        };
+
+        advance()
+    }
+
+    compileStatements()
+    {
+        bool go := true;
+
+        while (go)
+        {
+            string val := getTokenValue(currentToken());
+
+            if (val == "let")
+            {
+                compileLet()
+            }
+            else
+            {
+                if (val == "if")
+                {
+                    compileIf()
+                }
+                else
+                {
+                    if (val == "while")
+                    {
+                        compileWhile()
+                    }
+                    else
+                    {
+                        if (val == "do")
                         {
-                            compileReturn()
+                            compileDo()
                         }
                         else
                         {
-                            go := false
+                            if (val == "return")
+                            {
+                                compileReturn()
+                            }
+                            else
+                            {
+                                go := false
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
 
     compileLet()
-{
-    process(); // let
+    {
+        advance();
 
-    string varName :=
-        getTokenValue(currentToken());
+        string name := advance();
+        bool isArray := false;
 
-    process(); // varName
+        if (getTokenValue(currentToken()) == "[")
+        {
+            isArray := true;
+            advance();
 
-    process(); // =
+            compileExpression();
+            advance();
 
-    compileExpression();
+            _vm.writePush(_symbols.segmentOf(name), _symbols.indexOf(name));
+            _vm.writeArithmetic("add")
+        };
 
-    process(); // ;
+        advance();
+        compileExpression();
+        advance();
 
-    _vm.writePop(
-        _symbols.segmentOf(varName),
-        _symbols.indexOf(varName)
-    )
-}
+        if (isArray)
+        {
+            _vm.writePop("temp", 0);
+            _vm.writePop("pointer", 1);
+            _vm.writePush("temp", 0);
+            _vm.writePop("that", 0)
+        }
+        else
+        {
+            _vm.writePop(_symbols.segmentOf(name), _symbols.indexOf(name))
+        }
+    }
 
     compileIf()
-{
-    int id := _ifCounter;
-    _ifCounter := _ifCounter + 1;
-
-    string trueLabel :=
-        "IF_TRUE" + id.toString();
-
-    string falseLabel :=
-        "IF_FALSE" + id.toString();
-
-    string endLabel :=
-        "IF_END" + id.toString();
-
-    process(); // if
-    process(); // (
-
-    compileExpression();
-
-    process(); // )
-
-    _vm.writeIf(trueLabel);
-    _vm.writeGoto(falseLabel);
-
-    _vm.writeLabel(trueLabel);
-
-    process(); // {
-
-    compileStatements();
-
-    process(); // }
-
-    if (getTokenValue(currentToken()) == "else")
     {
-        _vm.writeGoto(endLabel);
+        string labelTrue := newLabel("IF_TRUE");
+        string labelFalse := newLabel("IF_FALSE");
+        string labelEnd := newLabel("IF_END");
 
-        _vm.writeLabel(falseLabel);
+        advance();
+        advance();
+        compileExpression();
+        advance();
 
-        process(); // else
-        process(); // {
+        _vm.writeIf(labelTrue);
+        _vm.writeGoto(labelFalse);
+        _vm.writeLabel(labelTrue);
 
+        advance();
         compileStatements();
+        advance();
 
-        process(); // }
+        if (getTokenValue(currentToken()) == "else")
+        {
+            _vm.writeGoto(labelEnd);
+            _vm.writeLabel(labelFalse);
 
-        _vm.writeLabel(endLabel)
+            advance();
+            advance();
+            compileStatements();
+            advance();
+
+            _vm.writeLabel(labelEnd)
+        }
+        else
+        {
+            _vm.writeLabel(labelFalse)
+        }
     }
-    else
+
+    compileWhile()
     {
-        _vm.writeLabel(falseLabel)
+        string labelExp := newLabel("WHILE_EXP");
+        string labelEnd := newLabel("WHILE_END");
+
+        _vm.writeLabel(labelExp);
+
+        advance();
+        advance();
+        compileExpression();
+        advance();
+
+        _vm.writeArithmetic("not");
+        _vm.writeIf(labelEnd);
+
+        advance();
+        compileStatements();
+        advance();
+
+        _vm.writeGoto(labelExp);
+        _vm.writeLabel(labelEnd)
     }
-}
 
-compileWhile()
-{
-    int id := _whileCounter;
-    _whileCounter := _whileCounter + 1;
+    compileDo()
+    {
+        advance();
+        compileSubroutineCall();
+        advance();
 
-    string expLabel :=
-        "WHILE_EXP" + id.toString();
-
-    string endLabel :=
-        "WHILE_END" + id.toString();
-
-    _vm.writeLabel(expLabel);
-
-    process(); // while
-    process(); // (
-
-    compileExpression();
-
-    process(); // )
-
-    _vm.writeArithmetic("not");
-    _vm.writeIf(endLabel);
-
-    process(); // {
-
-    compileStatements();
-
-    process(); // }
-
-    _vm.writeGoto(expLabel);
-
-    _vm.writeLabel(endLabel)
-}
-compileDo()
-{
-    process(); // do
-
-    compileSubroutineCall();
-
-    process(); // ;
-
-    _vm.writePop("temp", 0)
-}
+        _vm.writePop("temp", 0)
+    }
 
     compileReturn()
-{
-    process(); // return
-
-    if (getTokenValue(currentToken()) != ";")
     {
-        compileExpression()
+        advance();
+
+        if (getTokenValue(currentToken()) != ";")
+        {
+            compileExpression()
+        }
+        else
+        {
+            _vm.writePush("constant", 0)
+        };
+
+        advance();
+
+        _vm.writeReturn()
     }
-    else
+
+    compileExpression()
     {
-        _vm.writePush("constant", 0)
-    };
+        compileTerm();
 
-    process(); // ;
+        while (isOp(getTokenValue(currentToken())))
+        {
+            string op := advance();
+            compileTerm();
+            writeOp(op)
+        }
+    }
 
-    _vm.writeReturn()
-}
+    compileStringConstant(string val)
+    {
+        _vm.writePush("constant", val.Length);
+        _vm.writeCall("String.new", 1);
 
-   compileExpression()
-{
+        int i := 0;
+
+        while (i < val.Length)
+        {
+            int ch := val[i];
+            _vm.writePush("constant", ch);
+            _vm.writeCall("String.appendChar", 2);
+            i := i + 1
+        }
+    }
+
     compileTerm()
-}
-
-   compileTerm()
-{
-    string val :=
-        getTokenValue(currentToken());
-
-    if (tokenType(currentToken()) == "integerConstant")
     {
-        _vm.writePush(
-            "constant",
-            Integer.parse(val)
-        );
+        string tag := getTagName(currentToken());
+        string val := getTokenValue(currentToken());
 
-        process()
+        if (tag == "integerConstant")
+        {
+            advance();
+            _vm.writePush("constant", val.toInt())
+        }
+        else
+        {
+            if (tag == "stringConstant")
+            {
+                advance();
+                compileStringConstant(val)
+            }
+            else
+            {
+                if (tag == "identifier")
+                {
+                    string name := advance();
+
+                    if (getTokenValue(currentToken()) == "[")
+                    {
+                        advance();
+                        compileExpression();
+                        advance();
+
+                        _vm.writePush(_symbols.segmentOf(name), _symbols.indexOf(name));
+                        _vm.writeArithmetic("add");
+                        _vm.writePop("pointer", 1);
+                        _vm.writePush("that", 0)
+                    }
+                    else
+                    {
+                        if (getTokenValue(currentToken()) == "(")
+                        {
+                            advance();
+
+                            _vm.writePush("pointer", 0);
+                            int nArgs := compileExpressionList();
+
+                            advance();
+
+                            _vm.writeCall(_className + "." + name, nArgs + 1)
+                        }
+                        else
+                        {
+                            if (getTokenValue(currentToken()) == ".")
+                            {
+                                compileSubroutineCallAfterName(name)
+                            }
+                            else
+                            {
+                                _vm.writePush(_symbols.segmentOf(name), _symbols.indexOf(name))
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (val == "(")
+                    {
+                        advance();
+                        compileExpression();
+                        advance()
+                    }
+                    else
+                    {
+                        if (val == "-")
+                        {
+                            advance();
+                            compileTerm();
+                            _vm.writeArithmetic("neg")
+                        }
+                        else
+                        {
+                            if (val == "~")
+                            {
+                                advance();
+                                compileTerm();
+                                _vm.writeArithmetic("not")
+                            }
+                            else
+                            {
+                                if (val == "true")
+                                {
+                                    advance();
+                                    _vm.writePush("constant", 0);
+                                    _vm.writeArithmetic("not")
+                                }
+                                else
+                                {
+                                    if (val == "false")
+                                    {
+                                        advance();
+                                        _vm.writePush("constant", 0)
+                                    }
+                                    else
+                                    {
+                                        if (val == "null")
+                                        {
+                                            advance();
+                                            _vm.writePush("constant", 0)
+                                        }
+                                        else
+                                        {
+                                            if (val == "this")
+                                            {
+                                                advance();
+                                                _vm.writePush("pointer", 0)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-    else
-    {
-        process()
-    }
-}
 
-    compileExpressionList()
+    int compileExpressionList()
     {
-        openTag("expressionList");
+        int count := 0;
 
         if (getTokenValue(currentToken()) != ")")
         {
             compileExpression();
+            count := count + 1;
 
             while (getTokenValue(currentToken()) == ",")
             {
-                process();
-                compileExpression()
+                advance();
+                compileExpression();
+                count := count + 1
             }
         };
 
-        closeTag("expressionList")
+        ^ count
     }
 
-   compileSubroutineCall()
-{
-    process(); // name
-
-    if (getTokenValue(currentToken()) == ".")
+    compileSubroutineCallAfterName(string firstName)
     {
-        process();
-        process()
-    };
+        advance();
 
-    process(); // (
+        string funcName := advance();
 
-    int argCount := 0;
+        advance();
 
-    if (getTokenValue(currentToken()) != ")")
+        int nArgs := 0;
+        string callName := "";
+
+        if (_symbols.kindOf(firstName) != "none")
+        {
+            _vm.writePush(_symbols.segmentOf(firstName), _symbols.indexOf(firstName));
+            callName := _symbols.typeOf(firstName) + "." + funcName;
+            nArgs := compileExpressionList() + 1
+        }
+        else
+        {
+            callName := firstName + "." + funcName;
+            nArgs := compileExpressionList()
+        };
+
+        advance();
+
+        _vm.writeCall(callName, nArgs)
+    }
+
+    compileSubroutineCall()
     {
-        compileExpression();
-        argCount := 1
-    };
+        string name := advance();
 
-    process(); // )
+        if (getTokenValue(currentToken()) == ".")
+        {
+            compileSubroutineCallAfterName(name)
+        }
+        else
+        {
+            advance();
 
-    _vm.writeCall(
-        "Output.printInt",
-        argCount
-    )
-}
+            _vm.writePush("pointer", 0);
+            int nArgs := compileExpressionList();
+
+            advance();
+
+            _vm.writeCall(_className + "." + name, nArgs + 1)
+        }
+    }
 }
 
 public program()
@@ -1363,33 +1411,24 @@ public program()
     string path := console.readLine();
 
     var tokenizer := JackTokenizer.new(path);
-
     var tokens := tokenizer.tokenizeToArray();
 
-    string vmPath :=
-        path.Substring(0, path.Length - 5)
-        + ".vm";
+    console.writeLine("Tokens count:");
+    console.writeLine(tokens.Length);
 
-    var vmFile :=
-        File.assign(vmPath).textwriter();
+    string outPathVM := path.Substring(0, path.Length - 5) + ".vm";
 
-    var vmWriter :=
-        VMWriter.new(vmFile);
+    var outputFileVM := File.assign(outPathVM).textwriter();
 
-    var symbols :=
-        SymbolTable.new();
+    var vmWriter := VMWriter.new(outputFileVM);
 
-    var engine :=
-        CompilationEngine.new(
-            tokens,
-            vmWriter,
-            symbols
-        );
+    var engine := CompilationEngine.new(tokens, vmWriter);
 
     engine.compileClass();
-    vmFile.close();
 
-    console.writeLine("Done!");
+    outputFileVM.close();
+
+    console.writeLine("Done! Created .vm file");
 
     console.readChar()
 }
